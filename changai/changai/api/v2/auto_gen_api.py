@@ -19,7 +19,7 @@ import math
 from pathlib import Path
 from changai.changai.api.v2.schema_utils import convert_yaml_schema_to_sqlglot_meta
 from frappe.utils.file_manager import get_file
-from changai.changai.api.v2.text2sql_pipeline_v2 import call_gemini
+from changai.changai.api.v2.clients import call_model
 from changai.changai.api.v2.train_data_api import _get_openai_client
 JSON_EXT = ".json"
 SCHEMA_YAML = "schema.yaml"
@@ -744,7 +744,7 @@ def _smart_desc_map_gemini(table_name: str, fields: List[Dict[str, Any]]) -> Dic
     system_prompt = "Return ONLY a valid JSON object. No markdown. No extra text."
     for attempt in range(3):
         try:
-            response = call_gemini(prompt, system_prompt)
+            response = call_model(prompt, sys_prompt=system_prompt)
             text = (response or "").strip()
             parsed = _extract_json_object(text)
             normalized = _normalize_desc_map(parsed)

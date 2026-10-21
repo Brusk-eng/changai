@@ -63,7 +63,6 @@ from frappe import _
 from frappe.desk.query_report import get_script
 from changai.changai.api.v2.clients import (
     call_model,
-    call_gemini,
     remote_embedder_request,
 )
 STATUS_200 = 200
@@ -541,7 +540,8 @@ def create_entity(state:SQLState):
     "Detecting doctype for creation",
     "Detecting doctype for creation",
     done=True)
-    res = call_gemini(prompt,"")
+    res = call_model(prompt, sys_prompt="")
+
     try:
         if isinstance(res, str):
             res = res.replace("```json", "").replace("```", "").strip()
@@ -841,7 +841,7 @@ Answer the question clearly and helpfully.
 Always mention that you are ChangAI by ERPGulf when introducing yourself."""
     if frappe.utils.cint(state.get("sendNonErptoAI", 0)) == 1 or state.get("sendNonErptoAI") == "true":
         try:
-            res = call_gemini(question,sys_prompt)
+            res = call_model(question, sys_prompt=sys_prompt)
             return {**state, "non_erp_res": res}
         # except ValidationError as ve:
         #     return {**state,"error":str(ve)}
@@ -1364,7 +1364,7 @@ def retry_sql(sql, error, formatted_q, sql_prompt,source="erp"):
     retry_prompt = base + RETRY_PROMPT
     user_prompt = sql_prompt + RETRY_USER_PROMPT.format(sql=sql,error=error,formatted_q=formatted_q)
     try:
-        rewritten = call_gemini(user_prompt, sys_prompt=retry_prompt)
+        rewritten = call_model(user_prompt, sys_prompt=retry_prompt)
         rewritten_json = json.loads(rewritten)
         retried_sql = clean_sql(rewritten_json.get("sql") or "")
         retried_orm = clean_sql(rewritten_json.get("orm") or "")

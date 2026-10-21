@@ -101,7 +101,7 @@
    "fieldname": "llm",
    "fieldtype": "Select",
    "label": "LLM",
-   "options": "QWEN3\nGemini"
+   "options": "QWEN3\nGemini\nClaude"
   },
   {
    "fieldname": "column_break_irkb",
@@ -408,7 +408,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-10-21 12:00:00.000000",
+ "modified": "2026-10-21 11:49:40.598704",
  "modified_by": "Administrator",
  "module": "Changai",
  "name": "ChangAI Settings",
