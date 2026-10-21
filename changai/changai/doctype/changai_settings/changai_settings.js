@@ -188,22 +188,22 @@ frappe.ui.form.on("ChangAI Settings", {
     },
     update_masterdata_file(frm) {
         frappe.call({
-            method: "changai.changai.api.v2.auto_gen_api.update_masterdata",
+            method: "changai.changai.api.v2.auto_gen_api.sync_masterdata_from_ui",
             freeze: true,
             freeze_message: "Updating Master Data...",
             callback(r) {
-                console.log(r.message);
+                if (r.message) frappe.show_alert({ message: r.message.message, indicator: "blue" }, 8);
             }
         });
     },
 
     update_schema_file(frm) {
         frappe.call({
-            method: "changai.changai.api.v2.auto_gen_api.schema_sync",
+            method: "changai.changai.api.v2.auto_gen_api.sync_schema_from_ui",
             freeze: true,
             freeze_message: "Syncing schema...",
             callback(r) {
-                console.log(r.message);
+                if (r.message) frappe.show_alert({ message: r.message.message, indicator: "blue" }, 8);
             }
         });
     },

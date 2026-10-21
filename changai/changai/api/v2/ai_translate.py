@@ -31,7 +31,8 @@ def get_claude_client():
         )
 
     if _CLAUDE_CLIENT is None or _CLAUDE_API_KEY != api_key:
-        _CLAUDE_CLIENT = Anthropic(api_key=api_key)
+        # Runs inside a web request; the SDK default (10 min) would tie up a worker
+        _CLAUDE_CLIENT = Anthropic(api_key=api_key, timeout=60)
         _CLAUDE_API_KEY = api_key
 
     return _CLAUDE_CLIENT
@@ -42,6 +43,8 @@ def translate_and_store(docname: str, doctype: str, from_field: str, to_field: s
     """
     Translates text and stores it in a dynamically created field
     """
+    # Check before calling Claude so users who can't save the doc can't spend API credits.
+    frappe.has_permission(doctype, "write", doc=docname, throw=True)
     meta = get_meta(doctype)
     field_meta = meta.get_field(to_field)
 

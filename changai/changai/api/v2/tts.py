@@ -4,6 +4,7 @@ import boto3
 import frappe
 from typing import Any, Dict, Optional
 from changai.changai.api.v2.schema_utils import ChangAIConfig
+from changai.changai.api.v2.rate_limit import is_rate_limited
 
 _POLLY_CLIENT = None
 
@@ -51,6 +52,9 @@ def synthesize_tts(text: str, voice_id: Optional[str] = None) -> Dict[str, Any]:
     config = ChangAIConfig.get()
     if not bool(config.get("enable_voice_chat")):
         return {"ok": False, "error": "Voice chat is disabled in settings.", "provider": "browser"}
+    if is_rate_limited("tts"):
+        # Frontend falls back to browser speech, so no hard error here
+        return {"ok": False, "error": "Voice rate limit reached, using browser speech.", "provider": "browser"}
     aws_access_key_id = (config.get("aws_access_key_id") or "").strip()
     aws_secret_access_key = (config.get("aws_secret_access_key") or "").strip()
     if not aws_access_key_id or not aws_secret_access_key:

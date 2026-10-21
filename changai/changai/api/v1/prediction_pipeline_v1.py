@@ -184,7 +184,6 @@ non_erp_responses = [
     "I'm designed to handle ERP queries. Could you rephrase that in a business context?"
 ]
 
-@frappe.whitelist(allow_guest=False)
 def correct_sentence(text: str):
     doc = nlp(text)
     entities = [(ent.text, ent.start_char, ent.end_char) for ent in doc.ents]
@@ -219,7 +218,6 @@ def correct_sentence(text: str):
     return corrected_text
 
 
-@frappe.whitelist(allow_guest=False)
 def run_query(query:str):
     """Run a query."""
     try:
@@ -233,7 +231,6 @@ def run_query(query:str):
 
 
 # To convert the Python Date Objects into an ISO format.
-@frappe.whitelist(allow_guest=False)
 def sanitize_dates(obj: Any) -> Any:
     if isinstance(obj, list):
         return [sanitize_dates(i) for i in obj]
@@ -245,7 +242,6 @@ def sanitize_dates(obj: Any) -> Any:
         return obj
 
 
-@frappe.whitelist(allow_guest=False)
 def fetch_data_from_server(qstn: str) -> dict:
     """
     Handles a user question by detecting greetings or sending it to a prediction API.
@@ -268,7 +264,7 @@ def fetch_data_from_server(qstn: str) -> dict:
             "version": version_id,
             "input": {"user_input": response_msg["corrected"]},
         }
-        response = requests.post(api_url, headers=headers, json=data)
+        response = requests.post(api_url, headers=headers, json=data, timeout=120)
         response.raise_for_status()
 
         response_data = response.json()
@@ -303,7 +299,6 @@ def fetch_data_from_server(qstn: str) -> dict:
         return {"error": str(e)}
 
 
-@frappe.whitelist(allow_guest=False)
 def fuzzy_intent_router(text: str) -> Dict[str, Any]:
     """Responds to a user question with a fuzzy match"""
     corrected_text = correct_sentence(text)

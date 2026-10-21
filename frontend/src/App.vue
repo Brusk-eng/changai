@@ -172,7 +172,11 @@ if (msg.done) {
   const requestId = `${chatId}_${Date.now()}`
   const eventName = `debug_${requestId}`
   frappe.realtime.on(eventName, onPipelineUpdate)
-  const request = runPipelineCancelable(message,chatId, responseMode.value,requestId,sendNonERPtoaiEnabled.value)
+  const request = runPipelineCancelable(message,chatId, responseMode.value,requestId,sendNonERPtoaiEnabled.value, {
+    onConnectionLost: () => {
+      if (thinkingMsg.isStatus) thinkingMsg.text = 'Connection interrupted, waiting for the result...'
+    },
+  })
   let lastStepTime = Date.now()
   const steps = []
   // Without realtime the label never changes, so tell the user we are still waiting
@@ -349,7 +353,7 @@ if (response?.stop_followup) {
       text += '\n\nRealtime (socket.io) is not connected on this site, so live progress could not be shown. ' +
         'Please ask your administrator to check that the socketio process is running and that the reverse proxy forwards /socket.io.'
     }
-    text += '\n\nIf the answer appears in ChangAI Logs, the request is being held open by a proxy or gateway timeout. Please check the server/proxy timeout settings.'
+    text += '\n\nIf nothing appears in ChangAI Logs either, the request may have been stopped by the server (for example a gunicorn worker timeout). Please check the server error logs.'
     thinkingMsg.text = text
     }
     else if (err?.code === "ERR_NETWORK_CHANGED" || err?.message?.includes("ERR_NETWORK_CHANGED")){

@@ -585,7 +585,6 @@ def format_sql_response(
         "source_fields": source_fields,
     }
 
-@frappe.whitelist(allow_guest=False)
 def local_format(sql: str, sample_rows: List[Dict[str, Any]]):
     row_count = len(sample_rows)
     result = format_sql_response(sql, row_count, sample_rows)

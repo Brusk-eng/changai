@@ -5,11 +5,11 @@ from typing import Any, Optional, Dict
 import json
 from changai.changai.api.v2.schema_utils import read_asset
 from changai.changai.api.v2.clients import call_gemini
+from changai.changai.api.v2.rate_limit import enforce_user_rate_limit
 
 SUPPORT_PROMPT = read_asset("support.txt", base="prompts")
 SUPPORT_USER_PROMPT = read_asset("support_user_prompt.txt", base="prompts")
 SUPPORT_SYS_PROMPT = read_asset("support_sys_prompt.txt", base="prompts")
-@frappe.whitelist()
 def create_helpdesk_ticket(subject:str,user:str,email:str,priority:str ="Low", ticket_type: str ="Bug"):
     try:
 
@@ -59,11 +59,10 @@ def create_helpdesk_ticket(subject:str,user:str,email:str,priority:str ="Low", t
             status=500,
             mimetype="application/json")
 
-@frappe.whitelist()
 def get_user_tickets(ticket_id: int =None):
     try:
 
-        filters = {}
+        filters = {"owner": frappe.session.user}
         if ticket_id:
             filters["name"] = ticket_id
 
@@ -140,6 +139,7 @@ def get_user_tickets(ticket_id: int =None):
 
 @frappe.whitelist(allow_guest=False)
 def support_bot(message: str) -> Dict[str, Any]:
+    enforce_user_rate_limit("questions")
     user_email = frappe.session.user
     full_name = frappe.get_value("User", frappe.session.user, "full_name")
     prompt = SUPPORT_USER_PROMPT.format(user_message=message)

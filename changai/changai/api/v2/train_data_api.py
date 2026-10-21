@@ -88,8 +88,10 @@ def _sleep_backoff(attempt: int, base: float = BASE_BACKOFF, cap: float = MAX_BA
 
 def _get_abs_path(module_name: str, folder_path: str,suffix: str = "") -> str:
     relative = folder_path.replace("Home/", "", 1)
-    site_path = frappe.get_site_path("private", "files")
-    target_dir = os.path.join(site_path, relative)
+    site_path = os.path.realpath(frappe.get_site_path("private", "files"))
+    target_dir = os.path.realpath(os.path.join(site_path, relative))
+    if os.path.commonpath([site_path, target_dir]) != site_path:
+        frappe.throw(_("Invalid training data path: {0}").format(folder_path))
     os.makedirs(target_dir, exist_ok=True)
     return os.path.join(target_dir, f"{module_name}_batch8_{suffix}.jsonl")
 
@@ -760,7 +762,6 @@ def _sync_module_output(module_name: str, abs_path: str, path: str, suffix: str)
         return {"ok": False, "message": f"Error {str(e)}"}
 
 
-@frappe.whitelist(allow_guest=False)
 def generate_data(
     modules: Union[str, List[Dict[str, Any]]],
     total_count: int,
@@ -821,6 +822,7 @@ def generate_data(
 
 @frappe.whitelist(allow_guest=False)
 def start_train(modules: str, total_count: int):
+    frappe.has_permission("ChangAI Settings", "write", throw=True)
     total_count=int(total_count)
     val_count = max(1, int(int(total_count) * 0.25))
 
@@ -1255,7 +1257,6 @@ Make sure positives' must be a SINGLE-LEVEL list of strings.DO NOT use objects, 
 """.strip()
 
 import frappe
-@frappe.whitelist(allow_guest=False)
 def get_module_schema_str(module_name: str) -> str:
 
     SKIP_FIELDTYPES = {
