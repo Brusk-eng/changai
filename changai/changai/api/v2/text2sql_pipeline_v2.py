@@ -124,8 +124,8 @@ def get_cud_prompt(cud_type, formatted_q, context):
     raise ValueError(f"Unsupported CUD type: {cud_type}")
 
 
-@frappe.whitelist(allow_guest=True)
-def create_refresh_token( refresh_token):
+@frappe.whitelist(False)
+def create_refresh_token(refresh_token:str):
         """
         Create a new access token using a refresh token.
 
@@ -137,11 +137,10 @@ def create_refresh_token( refresh_token):
         """
         url = f"{frappe.local.conf.host_name}/api/method/frappe.integrations.oauth2.get_token"
 
-        payload = f"grant_type=refresh_token&refresh_token={refresh_token}"
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        payload = {"grant_type": "refresh_token", "refresh_token": refresh_token}
 
         try:
-            response = requests.post(url, headers=headers, data=payload, files=[])
+            response = requests.post(url, data=payload, timeout=30)
 
             if response.status_code == 200:
                 try:
@@ -219,7 +218,7 @@ def generate_token_secure(api_key: str, api_secret: str, app_key: str):
             "client_id": doc.client_id,
             "client_secret": doc.client_secret,
         }
-        response = requests.request("POST", url, data=payload)
+        response = requests.request("POST", url, data=payload, timeout=30)
         if response.status_code == STATUS_200:
             result_data = json.loads(response.text)
             return Response(
@@ -1335,13 +1334,64 @@ def is_thread_erp(q:str,chat_id:str):
     else:
         return False
 
-@frappe.whitelist(allow_guest=True)
+PIPELINE_RESULT_TTL = 900
+
+
+def _pipeline_result_key(request_id: str) -> str:
+    return f"changai:pipeline_result:{request_id}"
+
+
+def _store_pipeline_result(request_id: str, result: Any = None, error: Optional[str] = None) -> None:
+    # Lets the browser fetch the answer by polling when the original HTTP response
+    # never reaches it (proxy/gateway timeouts, dropped connections)
+    if not request_id or request_id == "None":
+        return
+    try:
+        frappe.cache.set_value(
+            _pipeline_result_key(request_id),
+            {
+                "user": frappe.session.user,
+                "status": "error" if error else "done",
+                "result": result,
+                "error": error,
+            },
+            expires_in_sec=PIPELINE_RESULT_TTL,
+        )
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "ChangAI Store Pipeline Result Error")
+
+
+@frappe.whitelist()
+def get_pipeline_result(request_id: str) -> Dict:
+    data = frappe.cache.get_value(_pipeline_result_key(request_id))
+    if not data or data.get("user") != frappe.session.user:
+        return {"status": "pending"}
+    return {"status": data.get("status"), "result": data.get("result"), "error": data.get("error")}
+
+
+@frappe.whitelist(allow_guest=False)
 def run_text2sql_pipeline(
     user_question: str,
     chat_id: str = "None",
     request_id: str = "None",
     source:str =  "erp",
     sendNonErptoAI: bool = False
+) -> Dict:
+    try:
+        result = _run_text2sql_pipeline(user_question, chat_id, request_id, source, sendNonErptoAI)
+    except Exception as e:
+        _store_pipeline_result(request_id, error=str(e) or e.__class__.__name__)
+        raise
+    _store_pipeline_result(request_id, result=result)
+    return result
+
+
+def _run_text2sql_pipeline(
+    user_question: str,
+    chat_id: str,
+    request_id: str,
+    source: str,
+    sendNonErptoAI: bool
 ) -> Dict:
     memory_status = check_memory_status()
     if source!="gdoc":

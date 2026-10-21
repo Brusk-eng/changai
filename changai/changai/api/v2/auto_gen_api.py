@@ -952,7 +952,7 @@ def sync_and_rebuild_masterdata_single(mod:str,doc_name :str,action:str):
 
 
 @frappe.whitelist()
-def update_masterdata(doc = None,method = None):
+def update_masterdata(doc: Optional[Document] = None, method: Optional[str] = None) -> None:
     if not doc:
         return
     if method == "on_update" and doc.creation == doc.modified:
@@ -1040,7 +1040,7 @@ def sync_and_rebuild_masterdata():
 
 #run after migrate - single full scan call
 @frappe.whitelist()
-def rebuild_masterdata_after_migrate(doc=None,method=None):
+def rebuild_masterdata_after_migrate(doc: Optional[Document] = None, method: Optional[str] = None) -> None:
     try:
         sync_and_rebuild_masterdata()
     except Exception:
