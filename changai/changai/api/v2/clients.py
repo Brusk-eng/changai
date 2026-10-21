@@ -95,7 +95,8 @@ def _throw_missing_vertex_field(project_id: str, location: str, credentials_json
 
 def _get_api_key_client(config):
     try:
-        api_key = config.get("gemini_api_key")
+        # Password field: .get() returns the "****" placeholder, get_password() the real key
+        api_key = (config.get_password("gemini_api_key", raise_exception=False) or "").strip()
     except Exception:
         api_key = None
 
