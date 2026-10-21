@@ -97,7 +97,6 @@ def _get_file_doc_by_name(file_name: str, folder: str = RAG_FOLDER) -> Optional[
         return None
     return frappe.get_doc("File", file_id)
 
-@frappe.whitelist(allow_guest=False)
 def _read_filedoctype(file_name: str, folder: str = RAG_FOLDER):
     doc = _get_file_doc_by_name(file_name, folder)
     if not doc:
@@ -424,7 +423,6 @@ def _process_schema_table(table: str, by_table: Dict[str, Dict[str, Any]]) -> bo
 
 
 
-@frappe.whitelist(allow_guest=False)
 def fill_missing_field_descriptions(
     batch_size: int = 15,
     max_tables: int = 0,
@@ -486,7 +484,6 @@ def fill_missing_field_descriptions(
     }
 from changai.changai.api.v2.build_cards_faiss_index_v2 import enrich_tables_descriptions
 
-@frappe.whitelist(allow_guest=False)
 def sync_tables_and_schema_smart() -> Dict[str, Any]:
     payload = _read_filedoctype(SCHEMA_YAML, RAG_FOLDER)
     meta, tables_blocks = _normalize_schema_payload(payload)
@@ -818,7 +815,6 @@ def _write_schema_outputs_incremental(meta, by_table, deleted_table: Optional[st
 
     write_filedoctype(TABLES_JSON, tables_payload, folder=RAG_FOLDER)
 
-@frappe.whitelist()
 def sync_schema_single(doctype_name: str, deleted: bool = False):
     payload = _read_filedoctype(SCHEMA_YAML, RAG_FOLDER)
     meta, tables_blocks = _normalize_schema_payload(payload)
@@ -993,7 +989,6 @@ MODULES_TO_SYNC = [
 ]
 
 
-@frappe.whitelist(allow_guest=False)
 def sync_master_data_smart() -> Dict[str, Any]:
     file_name = "master_data.yaml"
     payload = _read_filedoctype(file_name, RAG_FOLDER)
@@ -1038,8 +1033,28 @@ def sync_and_rebuild_masterdata():
     build_master_data_fvs_job()
 
 
-#run after migrate - single full scan call
+# Settings buttons: full rebuilds. update_masterdata/schema_sync are doc hooks and no-op without a doc.
 @frappe.whitelist()
+def sync_masterdata_from_ui() -> Dict[str, Any]:
+    frappe.has_permission("ChangAI Settings", "write", throw=True)
+    frappe.enqueue(
+        "changai.changai.api.v2.auto_gen_api.sync_and_rebuild_masterdata",
+        queue="long",
+        timeout=1800,
+    )
+    return {"ok": True, "message": _("Master data sync started in the background.")}
+
+
+@frappe.whitelist()
+def sync_schema_from_ui() -> Dict[str, Any]:
+    frappe.has_permission("ChangAI Settings", "write", throw=True)
+    if frappe.cache().get_value(SCHEMA_REBUILD_LOCK_KEY):
+        return {"ok": True, "message": _("A schema sync is already running.")}
+    _schedule_full_schema_rebuild()
+    return {"ok": True, "message": _("Schema sync started in the background.")}
+
+
+#run after migrate - single full scan call
 def rebuild_masterdata_after_migrate(doc: Optional[Document] = None, method: Optional[str] = None) -> None:
     try:
         sync_and_rebuild_masterdata()

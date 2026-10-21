@@ -450,6 +450,7 @@ def build_all_fvs() -> Dict[str, Any]:
     """
     Enqueues 3 separate background jobs to build FAISS vector stores.
     """
+    frappe.has_permission("ChangAI Settings", "write", throw=True)
     frappe.enqueue(
         "changai.changai.api.v2.build_cards_faiss_index_v2.build_table_fvs_job",
         queue="long",
@@ -470,7 +471,6 @@ def build_all_fvs() -> Dict[str, Any]:
         "message": "All 3 FVS build jobs have been queued. Check Error Logs for progress.",
     }
 
-@frappe.whitelist(allow_guest=False)
 def build_table_fvs_job():
     try:
         app_base, _, table_path, _, _,_, report_path = _get_fvs_paths()

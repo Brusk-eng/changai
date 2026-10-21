@@ -2,7 +2,6 @@ import requests
 from langchain_core.embeddings import Embeddings
 import frappe
 
-@frappe.whitelist(allow_guest=False)
 def get_local_embedding(text: str):
     try:
         res = requests.post(

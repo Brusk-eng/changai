@@ -58,10 +58,9 @@ def save_message_doc(session_id:str,message_type:str,content:str):
     return doc.name
 
 
-@frappe.whitelist(allow_guest=False)
 def save_turn_2(session_id: str, user_text: str=None, bot_text: Any = None,type_:str=None):
-    # find existing document
-    doc_name = frappe.db.exists(CHANGAI_CHAT_HIST_DOC, {"session_id": session_id})
+    # find existing document; scoped to the owner so a guessed session_id can't touch another user's chat
+    doc_name = frappe.db.exists(CHANGAI_CHAT_HIST_DOC, {"session_id": session_id, "owner": frappe.session.user})
     history = []
     if doc_name:
         raw = frappe.db.get_value(CHANGAI_CHAT_HIST_DOC, doc_name, "content")
@@ -97,9 +96,8 @@ def save_turn_2(session_id: str, user_text: str=None, bot_text: Any = None,type_
         return doc.name
 
 
-@frappe.whitelist(allow_guest=False)
 def get_chat_history(session_id: str) -> list:
-    doc_name = frappe.db.exists(CHANGAI_CHAT_HIST_DOC, {"session_id": session_id})
+    doc_name = frappe.db.exists(CHANGAI_CHAT_HIST_DOC, {"session_id": session_id, "owner": frappe.session.user})
     if not doc_name:
         return []
 
@@ -119,7 +117,6 @@ def get_chat_history(session_id: str) -> list:
 
     return history[-5:]
 
-@frappe.whitelist(allow_guest=False)
 def respond_from_cache(user_question:str):
     if user_question:
         doc=frappe.db.get_value("ChangAI Logs",{"user_question":user_question},["sql_generated","result"],as_dict=False)
@@ -332,7 +329,6 @@ def get_last_thread_message(chat_id: str):
         except Exception:
             pass
     return ""
-@frappe.whitelist(allow_guest=False)
 def inject_prompt(user_qstn: str, session_id: str) -> str:
     rows=get_chat_history(session_id)
     prompt=USER_PROMPT.format(rows=rows,qstn=user_qstn)

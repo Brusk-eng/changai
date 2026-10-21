@@ -21,6 +21,9 @@ from changai.changai.api.v2.retrieve import (
     get_master_vs
 )
 import re
+import sqlglot
+from sqlglot import exp
+from changai.changai.api.v2.rate_limit import enforce_user_rate_limit
 from changai.changai.api.v2.tts import get_polly_client
 from rapidfuzz import fuzz, process
 from langgraph.checkpoint.memory import MemorySaver
@@ -1019,23 +1022,42 @@ def _build_match_conditions(doctypes: List[str]) -> str:
     return " AND ".join(conditions) if conditions else ""
 
 
-def _append_conditions(sql: str, combined: str) -> str:
-    if "where" in sql.lower():
-        return sql + f" AND {combined}"
-    return sql + f" WHERE {combined}"
+def _parse_select(sql: str) -> Optional[exp.Expression]:
+    # Raw SQL is read-only; create/update/delete go through generate_orm with Frappe permissions.
+    # Parsed rather than startswith("select") so "SELECT 1; DELETE ..." is rejected and WITH ... SELECT is allowed.
+    try:
+        statements = sqlglot.parse(sql, read="mysql")
+    except sqlglot.errors.ParseError:
+        return None
+    if len(statements) != 1 or not isinstance(statements[0], (exp.Select, exp.SetOperation)):
+        return None
+    return statements[0]
+
+
+def _append_conditions(statement: exp.Expression, combined: str) -> str:
+    # Parse instead of string-appending so the filter lands before ORDER BY/LIMIT
+    # and an existing OR in the WHERE can't bypass it (sqlglot parenthesises both sides).
+    if not isinstance(statement, exp.Select):
+        # Can't place the filter safely (e.g. UNION); fail closed for restricted users.
+        raise frappe.PermissionError
+    try:
+        condition = sqlglot.condition(combined, dialect="mysql")
+    except sqlglot.errors.ParseError:
+        raise frappe.PermissionError
+    return statement.where(condition, append=True).sql(dialect="mysql")
 
 
 def execute_query(sql: str, doctypes: List[str]) -> Any:
     try:
         if not sql:
             return []
-        # if not str(sql).lower().strip().startswith("select"):
-        #     frappe.throw(_("Only SELECT queries are allowed."
-        #                    "Check Quick Start Guide Here 👇:\n {0}").format(CHANGAI_GUIDE_LINK))
         sql = sql.rstrip().rstrip(';')
+        statement = _parse_select(sql)
+        if statement is None:
+            return {"error": _("Only SELECT queries are allowed. Check Quick Start Guide Here 👇:\n {0}").format(CHANGAI_GUIDE_LINK)}
         combined = _build_match_conditions(doctypes)
         if combined:
-            sql = _append_conditions(sql, combined)
+            sql = _append_conditions(statement, combined)
         return frappe.db.sql(sql, as_dict=True)
     except frappe.PermissionError:
         return {
@@ -1377,6 +1399,7 @@ def run_text2sql_pipeline(
     source:str =  "erp",
     sendNonErptoAI: bool = False
 ) -> Dict:
+    enforce_user_rate_limit("questions")
     try:
         result = _run_text2sql_pipeline(user_question, chat_id, request_id, source, sendNonErptoAI)
     except Exception as e:

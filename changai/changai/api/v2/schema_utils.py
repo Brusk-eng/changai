@@ -89,7 +89,6 @@ def phonetic_bucket():
             _PHONETIC_BUCKETS[key].append(value)
 
 
-@frappe.whitelist(allow_guest=False)
 def phonetic_match(isreport: bool, word: str, threshold: int = 60):
     global _PHONETIC_BUCKETS, _VALUE_TO_FIELD
     original_word = word
@@ -156,7 +155,6 @@ def _read_filedoctype(file_name: str, folder: str = RAG_FOLDER):
 def _load_mapping_data() -> dict:
     return read_asset("metaschema_clean_v2.json")
 
-@frappe.whitelist()
 def validate_sql_schema(sql: str, dialect: str = "mysql") -> dict:
     try:
         mapping_data, schema = get_mapping_schema(dialect)
@@ -325,7 +323,6 @@ def check_file_updates(file_name: str):
     }
 
 
-@frappe.whitelist()
 def reload_mapping_schema_cache():
     global _MAPPING_DATA, _MAPPING_SCHEMA
     _MAPPING_DATA = None
@@ -354,7 +351,6 @@ def get_mapping_schema(dialect="mysql"):
 
     return _MAPPING_DATA, _MAPPING_SCHEMA
 
-@frappe.whitelist()
 def convert_yaml_schema_to_sqlglot_meta() -> dict:
     try:
         FRAPPE_GENERIC_FIELDS = {

@@ -55,6 +55,7 @@ BUSINESS_KEYWORDS = bk.get("business_keywords", bk)
 
 @frappe.whitelist(allow_guest=False)
 def download_model():
+    frappe.has_permission("ChangAI Settings", "write", throw=True)
     frappe.enqueue(
         "changai.changai.api.v2.retrieve.download_model_from_ui",  # dot-path to the function
         queue="long",           # use "long" queue for heavy tasks
@@ -72,7 +73,6 @@ def _get_model_path():
     return site_path
 
 
-@frappe.whitelist(allow_guest=False)
 def download_model_from_ui():
     global _EMBEDDER_INSTANCE
 
